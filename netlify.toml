@@ -1,0 +1,10 @@
+[build]
+  publish = "output"
+
+# No build command — HTML is pre-built by GitHub Actions and committed to the
+# repo. Netlify just serves the output/ directory as-is.
+
+# Pretty URLs: Netlify serves pride-2026-baptist.html at /pride-2026-baptist
+# (no .html suffix needed in shared links).
+[build.processing.html]
+  pretty_urls = true

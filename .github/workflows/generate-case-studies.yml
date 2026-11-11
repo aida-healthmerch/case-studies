@@ -1,0 +1,73 @@
+name: Generate Case Studies
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 10:00 UTC = 11:00 CET / 12:00 CEST
+  workflow_dispatch:       # Manual fallback
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Required for git push back to main
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history required for push-back to main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gcloud-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=gcloud-key.json" >> $GITHUB_ENV
+
+      - name: Run lookbook generator
+        env:
+          GOOGLE_SHEET_ID:           ${{ secrets.GOOGLE_SHEET_ID }}
+          NETLIFY_SITE_URL:          ${{ secrets.NETLIFY_SITE_URL }}
+          ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+          WEBSITE_API_URL:           ${{ secrets.WEBSITE_API_URL }}
+          WEBSITE_GUID:              ${{ secrets.WEBSITE_GUID }}
+          WEBSITE_USERNAME:          ${{ secrets.WEBSITE_USERNAME }}
+          WEBSITE_PASSWORD:          ${{ secrets.WEBSITE_PASSWORD }}
+          WEBSITE_LANGUAGE_GUID:     ${{ secrets.WEBSITE_LANGUAGE_GUID }}
+          WEBSITE_CURRENCY_GUID:     ${{ secrets.WEBSITE_CURRENCY_GUID }}
+        run: |
+          mkdir -p logs
+          set -o pipefail
+          python main.py 2>&1 | tee logs/run.log
+
+      - name: Commit and push generated output
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/ data/ || true
+          if git diff --cached --quiet; then
+            echo "No new output to commit — no Ready rows were processed."
+          else
+            git commit -m "chore: generated lookbooks $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case-study-logs-${{ github.run_number }}
+          path: logs/run.log
+          retention-days: 30

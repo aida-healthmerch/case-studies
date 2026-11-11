@@ -1,0 +1,20 @@
+# Credentials and secrets — never commit
+.env
+gcloud-key.json
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Logs
+logs/
+*.log
+
+# downloaded fonts and pictures used to draw the social cards
+.cache/
+output/.social-cache/
+node_modules/
